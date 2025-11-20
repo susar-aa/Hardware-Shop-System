@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - DMA ELECTRICALS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col items-center justify-center">
+
+    <div class="w-full max-w-md px-4">
+        <div class="bg-white p-8 rounded-lg shadow-lg w-full">
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-bold text-gray-900">DMA ELECTRICALS</h1>
+                <p class="text-gray-500 text-sm">Management System Login</p>
+            </div>
+
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                    <input type="email" id="email" name="email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors" required placeholder="admin@dma.com">
+                </div>
+
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="password" name="password" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors" required placeholder="••••••••">
+                </div>
+
+                <div id="login-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200 text-center"></div>
+
+                <button type="submit" id="login-btn" class="w-full bg-blue-900 text-white py-2.5 rounded-md hover:bg-blue-800 transition-colors font-medium shadow-sm">
+                    Sign In
+                </button>
+            </form>
+        </div>
+
+        <!-- Developer Credits -->
+        <div class="mt-8 text-center">
+            <p class="text-sm text-gray-500 flex justify-center items-center gap-2">
+                Developed by <span class="font-semibold text-gray-700">Susara Senarathne</span>
+                <a href="https://www.instagram.com/susar.aa" target="_blank" class="text-pink-600 hover:text-pink-700 transition-colors">
+                    <i class="fab fa-instagram text-lg"></i>
+                </a>
+            </p>
+            <div class="mt-2 text-xs text-gray-400">
+                &copy; 2024 DMA ELECTRICALS
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/login.js"></script>
+</body>
+</html>

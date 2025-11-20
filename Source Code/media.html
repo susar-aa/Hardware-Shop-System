@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Library</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Custom CSS (for loader) -->
+    <link rel="stylesheet" href="assets/css/style.css"> 
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome (for icons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 sm:p-6">
+
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">Media Library</h1>
+
+        <!-- Upload Form -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Upload New Image</h2>
+            <form id="upload-form">
+                <div class="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                    <!-- File Input -->
+                    <div class="flex-1 w-full">
+                        <label for="media-file-input" class="block text-sm font-medium text-gray-700">Select file (Max 2MB)</label>
+                        <input type="file" id="media-file-input" name="mediaFile" accept="image/jpeg,image/png,image/gif,image/webp" class="mt-1 block w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-md file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-blue-50 file:text-blue-700
+                            hover:file:bg-blue-100 cursor-pointer" required>
+                    </div>
+                    <!-- Preview -->
+                    <div id="image-preview-container" class="hidden h-24 w-24 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
+                        <img id="image-preview" src="" alt="Image preview" class="w-full h-full object-cover">
+                    </div>
+                    <!-- Upload Button -->
+                    <button type="submit" id="upload-button" class="px-5 py-2.5 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 disabled:bg-gray-400 w-full sm:w-auto">
+                        <i class="fas fa-upload mr-2"></i>Upload
+                    </button>
+                </div>
+                <!-- Upload Status -->
+                <div id="upload-status" class="text-sm mt-3"></div>
+            </form>
+        </div>
+
+        <h2 class="text-xl font-bold text-gray-900 mb-4">Select an Image</h2>
+
+        <!-- Loading Spinner -->
+        <div id="loader" class="flex justify-center items-center py-16">
+            <div class="loader"></div>
+        </div>
+
+        <!-- Media Grid -->
+        <div id="media-grid" class="hidden grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+            <!-- Images will be injected here by JavaScript -->
+        </div>
+
+        <!-- No Media Message -->
+        <div id="no-media-message" class="hidden text-center text-gray-500 py-16">
+            <h2 class="text-xl font-semibold">No images found</h2>
+            <p class="mt-2">Use the form above to upload images.</p>
+        </div>
+    </div>
+
+    <!-- Media Library JS -->
+    <script src="assets/js/media.js"></script>
+</body>
+</html>
