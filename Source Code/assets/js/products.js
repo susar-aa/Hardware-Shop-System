@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const productNoItems = document.getElementById('table-no-items');
     const browseMediaBtn = document.getElementById('browse-media-btn');
     const productVisible = document.getElementById('product-visible');
+    // Explicitly getting the ID input
+    const productIdInput = document.getElementById('product-id'); 
 
     const addCategoryBtn = document.getElementById('add-category-btn');
     const catModal = document.getElementById('category-modal');
@@ -37,28 +39,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
     const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
     const deleteError = document.getElementById('delete-error');
+    const formError = document.getElementById('form-error');
 
     let allProducts = [];
     let allCategories = [];
     let deleteTarget = null;
 
-    // ------------------------------------------------------
-    // 1. ATTACH IMPORT/EXPORT LISTENERS FIRST
-    // ------------------------------------------------------
+    // --- Initialization ---
+    loadProductCategories(); 
+    loadProductsTable();     
 
-    // EXPORT
+    // --- EXPORT LOGIC ---
     if(exportBtn) {
         exportBtn.addEventListener('click', () => {
             if (!allProducts || allProducts.length === 0) {
-                alert("No products data available to export yet. Please wait for the table to load.");
+                alert("No products data available to export yet.");
                 return;
             }
-            
-            // Headers
             const headers = ["Name", "Code", "Category ID", "Price", "Cost", "Reorder Level", "Description", "Image URL", "Is Visible (1=Yes, 0=No)"];
             const rows = [headers.join(",")];
             
-            // Data
             allProducts.forEach(p => {
                 const row = [
                     `"${p.name.replace(/"/g, '""')}"`,
@@ -74,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 rows.push(row.join(","));
             });
 
-            // Download
             const csvString = rows.join("\n");
             const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
@@ -88,10 +87,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // IMPORT
+    // --- IMPORT LOGIC ---
     if(importBtn && csvFileInput) {
         importBtn.addEventListener('click', () => {
-            csvFileInput.value = ''; // Allow re-selecting same file
+            csvFileInput.value = ''; 
             csvFileInput.click();
         });
 
@@ -111,13 +110,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     body: formData
                 });
-                
                 const result = await res.json();
-                
                 if (!res.ok) throw new Error(result.error || 'Import failed');
-                
                 alert(result.message);
-                loadProductsTable(); // Refresh table
+                loadProductsTable(); 
             } catch(err) {
                 console.error(err);
                 alert("Import Error: " + err.message);
@@ -128,19 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-    // ------------------------------------------------------
-    // 2. LOAD DATA
-    // ------------------------------------------------------
-    loadProductCategories();
-    loadProductsTable();
-
-
-    // ------------------------------------------------------
-    // 3. UI LOGIC (Tabs, Modals, etc)
-    // ------------------------------------------------------
-
-    // Tab Switching
+    // --- Tab Switching ---
     tabProducts.addEventListener('click', () => switchTab('products'));
     tabCategories.addEventListener('click', () => switchTab('categories'));
 
@@ -150,10 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
             tabProducts.classList.remove('text-gray-500', 'border-transparent');
             tabCategories.classList.remove('text-blue-600', 'border-blue-500');
             tabCategories.classList.add('text-gray-500', 'border-transparent');
-            
             viewProducts.classList.remove('hidden');
             viewCategories.classList.add('hidden');
-            
             if (userRole === 'admin') {
                 if(addProductBtn) addProductBtn.classList.remove('hidden');
                 if(addCategoryBtn) addCategoryBtn.classList.add('hidden');
@@ -163,12 +145,9 @@ document.addEventListener('DOMContentLoaded', () => {
             tabCategories.classList.remove('text-gray-500', 'border-transparent');
             tabProducts.classList.remove('text-blue-600', 'border-blue-500');
             tabProducts.classList.add('text-gray-500', 'border-transparent');
-            
             viewCategories.classList.remove('hidden');
             viewProducts.classList.add('hidden');
-            
             loadCategoriesTable();
-            
             if (userRole === 'admin') {
                 if(addCategoryBtn) addCategoryBtn.classList.remove('hidden');
                 if(addProductBtn) addProductBtn.classList.add('hidden');
@@ -176,6 +155,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ==========================================
+    // PRODUCTS LOGIC
+    // ==========================================
+    
     async function loadProductsTable() {
         if(productLoader) productLoader.classList.remove('hidden');
         if(productContainer) productContainer.classList.add('hidden');
@@ -229,14 +212,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add Product
     if(addProductBtn) addProductBtn.addEventListener('click', () => {
         productForm.reset();
-        document.getElementById('product-id').value = '';
+        if(productIdInput) productIdInput.value = ''; // Clear hidden ID explicitly
         document.getElementById('modal-title').textContent = 'Add New Product';
         if(productVisible) productVisible.checked = true;
         loadProductCategories();
         openModal(productModal);
     });
 
-    // Edit/Delete Product
+    // Edit/Delete Product Delegation
     if(productTableBody) productTableBody.addEventListener('click', (e) => {
         const editBtn = e.target.closest('.edit-prod-btn');
         const delBtn = e.target.closest('.delete-prod-btn');
@@ -246,7 +229,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const product = allProducts.find(p => p.product_id == id);
             if (product) {
                 productForm.reset();
-                document.getElementById('product-id').value = product.product_id;
+                // FIX: Ensure ID is set on the hidden input field
+                if(productIdInput) productIdInput.value = product.product_id;
+                
                 document.getElementById('modal-title').textContent = 'Edit Product';
                 document.getElementById('product-name').value = product.name;
                 document.getElementById('product-code').value = product.product_code;
@@ -257,6 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('product-reorder-level').value = product.reorder_level;
                 document.getElementById('product-image').value = product.image;
                 if(productVisible) productVisible.checked = (product.is_visible == 1);
+                
                 openModal(productModal);
             }
         }
@@ -273,13 +259,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Submit Product
     if(productForm) productForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // Clear errors
+        if(formError) formError.classList.add('hidden');
+
         const formData = new FormData(productForm);
         const data = Object.fromEntries(formData.entries());
         if(!data.category_id) data.category_id = null;
         
         data.is_visible = productVisible.checked ? 1 : 0;
 
-        const isEdit = !!data.product_id;
+        // FIX: Robust check for ID. Use the hidden input value directly if FormData fails.
+        let pid = data.product_id;
+        if(!pid && productIdInput) {
+            pid = productIdInput.value;
+            data.product_id = pid;
+        }
+
+        const isEdit = (pid !== "" && pid !== null && pid !== undefined);
         const method = isEdit ? 'PUT' : 'POST';
 
         try {
@@ -289,18 +286,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(data)
             });
             const result = await res.json();
-            if(!res.ok) throw new Error(result.error);
+            if(!res.ok) throw new Error(result.error || 'Save failed');
             
             closeModal(productModal);
             loadProductsTable();
         } catch(err) {
-            const errDiv = document.getElementById('form-error');
-            errDiv.textContent = err.message;
-            errDiv.classList.remove('hidden');
+            console.error("Save error:", err);
+            if(formError) {
+                formError.textContent = err.message;
+                formError.classList.remove('hidden');
+            } else {
+                alert("Error: " + err.message);
+            }
         }
     });
 
-    // Categories Logic
+    // ==========================================
+    // CATEGORIES LOGIC
+    // ==========================================
+
     async function loadCategoriesTable() {
         if(catLoader) catLoader.classList.remove('hidden');
         if(catTableBody) catTableBody.innerHTML = '';
@@ -436,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         el.querySelector('.modal-content').classList.add('-translate-y-10');
         setTimeout(() => {
             el.classList.add('hidden');
-            if(document.getElementById('form-error')) document.getElementById('form-error').classList.add('hidden');
+            if(formError) formError.classList.add('hidden');
             if(document.getElementById('cat-form-error')) document.getElementById('cat-form-error').classList.add('hidden');
         }, 250);
     }
