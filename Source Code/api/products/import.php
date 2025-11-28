@@ -31,13 +31,22 @@ if ($handle === false) {
 }
 
 $header = fgetcsv($handle); // Skip header row
-// Expected Order: Name, Code, CategoryID, Price, Cost, Reorder, Description, Image, Visible(1/0)
+// Expected Order: Name, Code, CategoryName, Price, Cost, Reorder, Description, Image, Visible(1/0)
 
 $updated = 0;
 $inserted = 0;
 
 try {
     $pdo->beginTransaction();
+
+    // 1. Fetch all categories to map Name -> ID
+    $cat_stmt = $pdo->query("SELECT category_id, category_name FROM categories");
+    $categories = $cat_stmt->fetchAll(PDO::FETCH_ASSOC);
+    $catMap = [];
+    foreach ($categories as $cat) {
+        // Store in lowercase for case-insensitive matching
+        $catMap[strtolower(trim($cat['category_name']))] = $cat['category_id'];
+    }
 
     $check_stmt = $pdo->prepare("SELECT product_id FROM products WHERE product_code = :code");
     
@@ -51,13 +60,24 @@ try {
 
         $name = $row[0];
         $code = $row[1] ?? '';
-        $cat_id = !empty($row[2]) ? (int)$row[2] : null;
+        $cat_name = trim($row[2] ?? '');
         $price = !empty($row[3]) ? (float)$row[3] : 0;
         $cost = !empty($row[4]) ? (float)$row[4] : 0;
         $reorder = !empty($row[5]) ? (int)$row[5] : 5;
         $desc = $row[6] ?? '';
         $img = $row[7] ?? '';
         $visible = isset($row[8]) ? (int)$row[8] : 1;
+
+        // LOOKUP Category ID
+        $cat_id = null;
+        if (!empty($cat_name)) {
+            $lower_name = strtolower($cat_name);
+            if (isset($catMap[$lower_name])) {
+                $cat_id = $catMap[$lower_name];
+            }
+            // Optional: If category doesn't exist, we currently leave it NULL.
+            // To auto-create, we would need to insert into categories table here.
+        }
 
         $product_id = null;
 

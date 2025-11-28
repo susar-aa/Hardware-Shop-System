@@ -11,9 +11,18 @@ if (session_status() === PHP_SESSION_NONE) {
 $user_role = $_SESSION['role'] ?? 'staff';
 ?>
 <!-- Sidebar -->
-<aside class="sidebar w-64 bg-gray-800 text-white min-h-screen p-4 fixed md:relative transform -translate-x-full md:translate-x-0 z-20">
-    <h2 class="text-2xl font-bold mb-6">DMA ELECTRICALS</h2>
-    <nav>
+<aside class="sidebar w-64 bg-gray-800 text-white min-h-screen p-4 fixed md:relative transform -translate-x-full md:translate-x-0 z-20 flex flex-col">
+    
+    <!-- Header with Logo -->
+    <div class="mb-6 text-center">
+        <div class="flex justify-center mb-3">
+            <!-- Using the logo path consistent with the index page -->
+            <img src="assets/images/logo.jpg" alt="Logo" class="h-16 w-auto rounded-md object-contain bg-white p-1">
+        </div>
+        <h2 class="text-2xl font-bold">DMA ELECTRICALS</h2>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto">
         <a href="dashboard.php" class="flex items-center p-2 <?php echo ($active_page == 'dashboard') ? 'bg-gray-700' : ''; ?> hover:bg-gray-700 rounded-md">
             <i class="fas fa-tachometer-alt w-6"></i>
             <span class="ml-2">Dashboard</span>
@@ -23,20 +32,16 @@ $user_role = $_SESSION['role'] ?? 'staff';
             <span class="ml-2">Products</span>
         </a>
         
-        <!-- REMOVED: Stock Levels Button -->
-        
         <a href="stock_adjust.php" class="flex items-center p-2 <?php echo ($active_page == 'stock_adjust') ? 'bg-gray-700' : ''; ?> hover:bg-gray-700 rounded-md mt-2">
             <i class="fas fa-exchange-alt w-6"></i>
-            <span class="ml-2">Stock</span>
+            <span class="ml-2">Stock Adjustments</span>
         </a>
         
-        <?php if ($user_role !== 'admin'): ?>
-        <!-- Sales Tracker Link (Hidden for Admin) -->
+        <!-- Sales Tracker Link (Visible for Everyone) -->
         <a href="sales.php" class="flex items-center p-2 <?php echo ($active_page == 'sales') ? 'bg-gray-700' : ''; ?> hover:bg-gray-700 rounded-md mt-2">
             <i class="fas fa-money-check-alt w-6"></i>
             <span class="ml-2">Sales Tracker</span>
         </a>
-        <?php endif; ?>
 
         <!-- Sale Return Link -->
         <a href="sale_return.php" class="flex items-center p-2 <?php echo ($active_page == 'sale_return') ? 'bg-gray-700' : ''; ?> hover:bg-gray-700 rounded-md mt-2">
@@ -83,7 +88,7 @@ $user_role = $_SESSION['role'] ?? 'staff';
     </nav>
     
     <!-- Separated Billing Button at the bottom (New Sale) -->
-    <div class="mt-8 pt-4 border-t border-gray-700">
+    <div class="mt-4 pt-4 border-t border-gray-700">
         <a href="billing.php" class="w-full flex items-center justify-center p-3 bg-green-500 text-white font-bold rounded-lg shadow-lg hover:bg-green-600 transition-colors <?php echo ($active_page == 'billing') ? 'ring-2 ring-green-300' : ''; ?>">
             <i class="fas fa-cash-register mr-3 text-lg"></i>
             NEW SALE / BILLING

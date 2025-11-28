@@ -25,11 +25,11 @@ if ($user_role === 'staff') {
 
 try {
     // 1. REVENUE & COGS (Cost of Goods Sold)
-    // We join sale_items to products to get the cost *at the moment of query*
-    // Note: In a perfect system, cost is snapshot at sale time, but this is standard for simple inventory.
+    // FIX: Revenue is calculated as SUM(si.quantity * si.unit_price) to avoid duplication from joins
+    // COGS is calculated as SUM(si.quantity * p.cost)
     $sales_query = "
         SELECT 
-            SUM(s.total_amount) as revenue,
+            SUM(si.quantity * si.unit_price) as revenue,
             SUM(si.quantity * p.cost) as cogs
         FROM sales s
         JOIN sale_items si ON s.sale_id = si.sale_id
@@ -47,34 +47,8 @@ try {
         $branch_filter_sql
     ";
 
-    // 3. CHART DATA (Daily Revenue vs Expenses)
-    // This query groups data by date for the chart
-    $chart_query = "
-        SELECT 
-            DATE(date_col) as date,
-            SUM(revenue) as revenue,
-            SUM(expense) as expense
-        FROM (
-            SELECT DATE(sale_date) as date_col, total_amount as revenue, 0 as expense
-            FROM sales WHERE DATE(sale_date) BETWEEN :start AND :end AND is_reversed = 0 $branch_filter_sql
-            UNION ALL
-            SELECT expense_date as date_col, 0 as revenue, amount as expense
-            FROM expenses WHERE expense_date BETWEEN :start AND :end $branch_filter_sql
-        ) combined
-        GROUP BY DATE(date_col)
-        ORDER BY date ASC
-    ";
-
     // Execute Queries
     // A. Totals
-    $stmt = $pdo->prepare($sales_query);
-    // Need to fix params for sales query (uses s.branch_id, expenses uses branch_id)
-    // We'll just bind by name, PDO handles reuse
-    // Actually, for safety with different column names in raw SQL string concatenation above,
-    // let's replace the generic SQL var with table specific alias in the SQL strings above.
-    // Adjusted: $branch_filter_sql above is generic. 
-    // Let's rewrite the execution slightly for safety.
-    
     // RE-BINDING approach for clarity
     $sales_sql_final = str_replace("branch_id", "s.branch_id", $sales_query);
     $stmt_sales = $pdo->prepare($sales_sql_final);
@@ -87,11 +61,18 @@ try {
     $exp_data = $stmt_exp->fetch(PDO::FETCH_ASSOC);
 
     // B. Chart
-    // The UNION query is tricky with params. We need to replace the string injection securely or bind carefully.
-    // To simplify, we'll run separate chart queries and merge in PHP.
-    
     // Chart: Sales
-    $c_sales_sql = "SELECT DATE(sale_date) as d, SUM(total_amount) as val FROM sales s WHERE DATE(sale_date) BETWEEN :start AND :end AND is_reversed = 0 " . ($user_role==='staff' || $branch_id ? "AND s.branch_id = :branch" : "") . " GROUP BY d";
+    // FIX: Also fix the chart query to sum line items instead of header totals
+    $c_sales_sql = "
+        SELECT 
+            DATE(s.sale_date) as d, 
+            SUM(si.quantity * si.unit_price) as val 
+        FROM sales s 
+        JOIN sale_items si ON s.sale_id = si.sale_id
+        WHERE DATE(s.sale_date) BETWEEN :start AND :end 
+        AND s.is_reversed = 0 " . ($user_role==='staff' || $branch_id ? "AND s.branch_id = :branch" : "") . " 
+        GROUP BY d";
+        
     $stmt_cs = $pdo->prepare($c_sales_sql);
     $stmt_cs->execute($params);
     $sales_chart = $stmt_cs->fetchAll(PDO::FETCH_KEY_PAIR); // [date => val]

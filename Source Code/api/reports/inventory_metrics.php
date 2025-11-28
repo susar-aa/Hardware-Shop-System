@@ -16,15 +16,25 @@ $where = [];
 $params = [];
 
 // Branch Logic
+// FIX: Use unique parameter names for main query vs subquery to support non-emulated prepares
 if ($user_role === 'staff') {
-    $where[] = "ps.branch_id = :branch";
-    $params[':branch'] = $user_branch_id;
-    // For sales subquery
-    $sales_branch_sql = "AND s.branch_id = :branch";
+    // Main Query Filter
+    $where[] = "ps.branch_id = :branch_main";
+    $params[':branch_main'] = $user_branch_id;
+    
+    // Subquery Filter
+    $sales_branch_sql = "AND s.branch_id = :branch_sub";
+    $params[':branch_sub'] = $user_branch_id;
+
 } elseif ($branch_id) {
-    $where[] = "ps.branch_id = :branch";
-    $params[':branch'] = $branch_id;
-    $sales_branch_sql = "AND s.branch_id = :branch";
+    // Main Query Filter
+    $where[] = "ps.branch_id = :branch_main";
+    $params[':branch_main'] = $branch_id;
+    
+    // Subquery Filter
+    $sales_branch_sql = "AND s.branch_id = :branch_sub";
+    $params[':branch_sub'] = $branch_id;
+
 } else {
     $sales_branch_sql = ""; // Admin looking at all branches
 }
@@ -33,7 +43,6 @@ $where_sql = count($where) > 0 ? "WHERE " . implode(' AND ', $where) : "";
 
 try {
     // 1. Inventory Rows with Sold Count Subquery
-    // We join the main products table with a subquery that sums sales in the date range.
     
     $query = "SELECT 
                 p.name, 
@@ -69,10 +78,11 @@ try {
 
     $stmt = $pdo->prepare($query);
     
-    // Bind params
+    // Bind dynamic params (This will now bind :branch_main and :branch_sub separately if they exist)
     foreach ($params as $key => $val) {
         $stmt->bindValue($key, $val);
     }
+    // Bind static date params
     $stmt->bindValue(':start_date', $start_date);
     $stmt->bindValue(':end_date', $end_date);
     
@@ -80,7 +90,6 @@ try {
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // 2. Totals
-    // We can calculate totals in PHP easily from the rows we just fetched to avoid another heavy query
     $summary = [
         'total_qty' => 0,
         'total_value' => 0,

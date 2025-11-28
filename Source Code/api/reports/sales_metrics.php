@@ -50,19 +50,15 @@ switch ($group_by) {
         break;
 }
 
-// If admin views all branches, we might want to group by branch too?
-// For simple reports, let's keep it aggregated by time, unless specifically drilled down.
-// But to show 'Branch' column in 'All' view, we need to group by branch IF multiple branches are involved.
-// To keep it simple for charts/tables: We will just group by Time.
-// IF branch filter is empty (All branches), the table will show aggregated totals for ALL branches per day.
-
 try {
     // 1. Detailed Rows (Grouped)
+    // FIX: Calculate revenue by summing (quantity * unit_price) from line items
+    // instead of summing the header total, which duplicates when joined.
     $query = "SELECT 
                 $sql_label as period_label,
                 COUNT(DISTINCT s.sale_id) as transaction_count,
                 SUM(si.quantity) as items_sold,
-                SUM(s.total_amount) as revenue
+                SUM(si.quantity * si.unit_price) as revenue
                 " . ($user_role === 'admin' && !$branch_id ? ", b.branch_name" : "") . "
               FROM sales s
               JOIN sale_items si ON s.sale_id = si.sale_id
@@ -76,10 +72,11 @@ try {
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // 2. Summary Totals (Overall for the period)
+    // FIX: Same fix here for the total revenue summary.
     $query_summary = "SELECT 
                         COUNT(DISTINCT s.sale_id) as total_transactions,
                         SUM(si.quantity) as total_items,
-                        SUM(s.total_amount) as total_revenue
+                        SUM(si.quantity * si.unit_price) as total_revenue
                       FROM sales s
                       JOIN sale_items si ON s.sale_id = si.sale_id
                       $where_sql";

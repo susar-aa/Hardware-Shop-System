@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const productNoItems = document.getElementById('table-no-items');
     const browseMediaBtn = document.getElementById('browse-media-btn');
     const productVisible = document.getElementById('product-visible');
-    // Explicitly getting the ID input
+    
+    // Get ID input reference (will also re-fetch in submit to be safe)
     const productIdInput = document.getElementById('product-id'); 
 
     const addCategoryBtn = document.getElementById('add-category-btn');
@@ -49,21 +50,23 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProductCategories(); 
     loadProductsTable();     
 
-    // --- EXPORT LOGIC ---
+    // --- EXPORT LOGIC (Updated to use Category Name) ---
     if(exportBtn) {
         exportBtn.addEventListener('click', () => {
             if (!allProducts || allProducts.length === 0) {
                 alert("No products data available to export yet.");
                 return;
             }
-            const headers = ["Name", "Code", "Category ID", "Price", "Cost", "Reorder Level", "Description", "Image URL", "Is Visible (1=Yes, 0=No)"];
+            // Header now explicitly says "Category Name"
+            const headers = ["Name", "Code", "Category Name", "Price", "Cost", "Reorder Level", "Description", "Image URL", "Is Visible (1=Yes, 0=No)"];
             const rows = [headers.join(",")];
             
             allProducts.forEach(p => {
                 const row = [
                     `"${p.name.replace(/"/g, '""')}"`,
                     `"${p.product_code || ''}"`,
-                    p.category_id || '',
+                    // FIX: Export category_name instead of category_id
+                    `"${(p.category_name || '').replace(/"/g, '""')}"`,
                     p.price || 0,
                     p.cost || 0,
                     p.reorder_level || 0,
@@ -209,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Add Product
+    // Add Product Button
     if(addProductBtn) addProductBtn.addEventListener('click', () => {
         productForm.reset();
         if(productIdInput) productIdInput.value = ''; // Clear hidden ID explicitly
@@ -229,7 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const product = allProducts.find(p => p.product_id == id);
             if (product) {
                 productForm.reset();
-                // FIX: Ensure ID is set on the hidden input field
+                
+                // FIX: Set hidden ID
                 if(productIdInput) productIdInput.value = product.product_id;
                 
                 document.getElementById('modal-title').textContent = 'Edit Product';
@@ -260,7 +264,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if(productForm) productForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // Clear errors
         if(formError) formError.classList.add('hidden');
 
         const formData = new FormData(productForm);
@@ -269,15 +272,20 @@ document.addEventListener('DOMContentLoaded', () => {
         
         data.is_visible = productVisible.checked ? 1 : 0;
 
-        // FIX: Robust check for ID. Use the hidden input value directly if FormData fails.
+        // FIX: Robust Check for Product ID to determine Edit vs Create
         let pid = data.product_id;
-        if(!pid && productIdInput) {
-            pid = productIdInput.value;
-            data.product_id = pid;
+        if(!pid) {
+            const currentIdInput = document.getElementById('product-id');
+            if(currentIdInput && currentIdInput.value) {
+                pid = currentIdInput.value;
+                data.product_id = pid; // Ensure it's in the payload
+            }
         }
 
         const isEdit = (pid !== "" && pid !== null && pid !== undefined);
         const method = isEdit ? 'PUT' : 'POST';
+        
+        console.log("Submitting Product:", method, data); // Debug log
 
         try {
             const res = await fetch('api/products/crud.php', {
@@ -286,6 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(data)
             });
             const result = await res.json();
+            
             if(!res.ok) throw new Error(result.error || 'Save failed');
             
             closeModal(productModal);
