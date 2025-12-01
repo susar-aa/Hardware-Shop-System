@@ -74,12 +74,16 @@ try {
         $log_query = "INSERT INTO stock_transactions (product_id, branch_id, user_id, transaction_type, quantity, notes, sale_id)
                       VALUES (:product_id, :branch_id, :user_id, :transaction_type, :quantity, :notes, :sale_id)";
         $log_stmt = $pdo->prepare($log_query);
+        
+        // FIX: Assign to variable first to avoid 'pass by reference' fatal error
+        $final_note = $notes_prefix . $sale_id . ' - ' . $reversal_notes;
+        
         $log_stmt->bindParam(':product_id', $product_id, PDO::PARAM_INT);
         $log_stmt->bindParam(':branch_id', $branch_id, PDO::PARAM_INT);
         $log_stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
         $log_stmt->bindParam(':transaction_type', $reversal_type);
         $log_stmt->bindParam(':quantity', $quantity, PDO::PARAM_INT);
-        $log_stmt->bindParam(':notes', $notes_prefix . $sale_id . ' - ' . $reversal_notes);
+        $log_stmt->bindParam(':notes', $final_note);
         $log_stmt->bindParam(':sale_id', $sale_id, PDO::PARAM_INT);
         $log_stmt->execute();
     }
@@ -99,8 +103,19 @@ try {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
+    // Log error to server log for debugging
+    error_log("Reversal Error: " . $e->getMessage());
+    
     $code = $e->getCode() >= 400 ? $e->getCode() : 500;
     http_response_code($code);
     echo json_encode(['error' => $e->getMessage()]);
+} catch (Error $e) {
+    // Catch fatal errors (like bindParam reference issues)
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log("Reversal Fatal Error: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['error' => 'Server Fatal Error: ' . $e->getMessage()]);
 }
 ?>

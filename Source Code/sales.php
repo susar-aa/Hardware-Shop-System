@@ -1,5 +1,5 @@
 <?php
-// CRITICAL FIX: Start the session to access $_SESSION['role']
+// Start the session to access $_SESSION['role']
 session_start();
 
 // 1. Define the variables for this specific page
@@ -17,12 +17,9 @@ $user_role = $_SESSION['role'] ?? 'staff';
 ?>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col h-screen">
+    <div class="flex-1 flex flex-col h-screen bg-gray-100">
         
-        <?php
-        // 4. Include the top bar
-        include 'admin/_topbar.php';
-        ?>
+        <?php include 'admin/_topbar.php'; ?>
 
         <!-- Page Content -->
         <main class="flex-1 p-6 overflow-auto">
@@ -35,7 +32,6 @@ $user_role = $_SESSION['role'] ?? 'staff';
                 </div>
 
                 <!-- Filter Controls -->
-                <!-- The structure ensures Admin sees the Branch filter, Staff does not -->
                 <div class="bg-white rounded-lg shadow-md p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     
                     <!-- Date Start -->
@@ -83,7 +79,8 @@ $user_role = $_SESSION['role'] ?? 'staff';
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Amount</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Branch</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sold By</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase admin-only">Action</th>
+                                    <!-- UPDATED: Removed 'admin-only' class so Staff can see the View button -->
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="sales-table-body" class="bg-white divide-y divide-gray-200">
@@ -136,10 +133,7 @@ $user_role = $_SESSION['role'] ?? 'staff';
         </div>
     </div>
 
-<!-- This page's specific JS file -->
-<script src="assets/js/sales.js"></script>
+<!-- This page's specific JS file with Cache Buster -->
+<script src="assets/js/sales.js?v=<?php echo time(); ?>"></script>
 
-<?php
-// 5. Include the footer (which includes main.js)
-include 'admin/_footer.php';
-?>
+<?php include 'admin/_footer.php'; ?>
