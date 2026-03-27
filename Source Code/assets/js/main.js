@@ -148,12 +148,14 @@ async function loadStockAdjustPage(user) {
     const inForm = document.getElementById('stock-in-form');
     const outForm = document.getElementById('stock-out-form');
 
-    // Product Search Inputs
+    // Product Search Inputs & Buttons
     const inProductSearch = document.getElementById('stock-in-product-search');
+    const inSearchBtn = document.getElementById('stock-in-search-btn'); // New Button
     const inProductHidden = document.getElementById('stock-in-product-id');
     const inSearchResults = document.getElementById('stock-in-results');
 
     const outProductSearch = document.getElementById('stock-out-product-search');
+    const outSearchBtn = document.getElementById('stock-out-search-btn'); // New Button
     const outProductHidden = document.getElementById('stock-out-product-id');
     const outSearchResults = document.getElementById('stock-out-results');
 
@@ -175,6 +177,9 @@ async function loadStockAdjustPage(user) {
     const levelTableBody = document.getElementById('stock-level-table-body');
     const levelNoItems = document.getElementById('stock-level-no-items');
     const levelError = document.getElementById('stock-level-error');
+    // NEW: Table Search Input & Button
+    const stockLevelSearch = document.getElementById('stock-level-search');
+    const stockLevelSearchBtn = document.getElementById('stock-level-search-btn');
 
     // Current Stock Display Elements
     const stockInCurrentStock = document.getElementById('stock-in-current-stock');
@@ -229,6 +234,7 @@ async function loadStockAdjustPage(user) {
         levelNoItems.classList.add('hidden');
         levelError.classList.add('hidden');
         levelTableBody.innerHTML = '';
+        currentStockList = []; // Clear current list
 
         try {
             const response = await fetch(`api/stock/get_levels.php?branch_id=${branch_id}`);
@@ -238,24 +244,10 @@ async function loadStockAdjustPage(user) {
             }
             
             const stockData = await response.json();
+            currentStockList = stockData; // Save for filtering
 
-            if (stockData.length === 0) {
-                levelNoItems.classList.remove('hidden');
-            } else {
-                stockData.forEach(item => {
-                    const row = document.createElement('tr');
-                    const stockClass = (item.stock > 0 && item.stock <= item.reorder_level) ? 'text-red-600 font-bold' : 'text-gray-500';
-                    
-                    row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.product_name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.product_code || '-'}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm ${stockClass}">${item.stock}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.reorder_level}</td>
-                    `;
-                    levelTableBody.appendChild(row);
-                });
-                levelTableContainer.classList.remove('hidden');
-            }
+            renderStockLevels(currentStockList);
+
         } catch (error) {
             console.error('Error loading stock levels:', error);
             levelError.textContent = error.message;
@@ -263,6 +255,49 @@ async function loadStockAdjustPage(user) {
         } finally {
             levelLoader.classList.add('hidden');
         }
+    }
+
+    // --- Render Stock Levels Table ---
+    function renderStockLevels(data) {
+        levelTableBody.innerHTML = '';
+        
+        if (data.length === 0) {
+            levelNoItems.classList.remove('hidden');
+            levelTableContainer.classList.add('hidden');
+        } else {
+            levelNoItems.classList.add('hidden');
+            levelTableContainer.classList.remove('hidden');
+
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                const stockClass = (item.stock > 0 && item.stock <= item.reorder_level) ? 'text-red-600 font-bold' : 'text-gray-500';
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.product_name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.product_code || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm ${stockClass}">${item.stock}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.reorder_level}</td>
+                `;
+                levelTableBody.appendChild(row);
+            });
+        }
+    }
+
+    // --- Search Listener for Stock Table ---
+    function performStockSearch() {
+        const query = stockLevelSearch.value.toLowerCase();
+        const filtered = currentStockList.filter(item => 
+            (item.product_name && item.product_name.toLowerCase().includes(query)) || 
+            (item.product_code && item.product_code.toLowerCase().includes(query))
+        );
+        renderStockLevels(filtered);
+    }
+
+    if (stockLevelSearchBtn && stockLevelSearch) {
+        stockLevelSearchBtn.addEventListener('click', performStockSearch);
+        stockLevelSearch.addEventListener('keypress', (e) => {
+             if (e.key === 'Enter') performStockSearch();
+        });
     }
 
     // --- Fetch Current Stock ---
@@ -287,32 +322,31 @@ async function loadStockAdjustPage(user) {
         }
     }
 
-    // --- Product Search Logic ---
-    function setupProductSearch(searchInput, hiddenInput, resultsContainer, branchSelect, currentStockContainer, currentStockValue) {
-        let searchTimeout = null;
-
-        searchInput.addEventListener('input', () => {
-            clearTimeout(searchTimeout);
+    // --- Product Search Logic (For Add/Remove Forms) ---
+    function setupProductSearch(searchBtn, searchInput, hiddenInput, resultsContainer, branchSelect, currentStockContainer, currentStockValue) {
+        
+        function performSearch() {
             const query = searchInput.value.trim().toLowerCase();
-
             if (query.length === 0) {
                 resultsContainer.classList.add('hidden');
                 return;
             }
 
-            searchTimeout = setTimeout(() => {
-                const filtered = allProducts.filter(p => 
-                    p.name.toLowerCase().includes(query) || 
-                    (p.product_code && p.product_code.toLowerCase().includes(query))
-                );
+            const filtered = allProducts.filter(p => 
+                p.name.toLowerCase().includes(query) || 
+                (p.product_code && p.product_code.toLowerCase().includes(query))
+            );
 
-                renderSearchResults(filtered, resultsContainer, searchInput, hiddenInput, branchSelect, currentStockContainer, currentStockValue);
-            }, 300);
+            renderSearchResults(filtered, resultsContainer, searchInput, hiddenInput, branchSelect, currentStockContainer, currentStockValue);
+        }
+
+        searchBtn.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') performSearch();
         });
 
-        // Hide results when clicking outside
         document.addEventListener('click', (e) => {
-            if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+            if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target) && !searchBtn.contains(e.target)) {
                 resultsContainer.classList.add('hidden');
             }
         });
@@ -407,8 +441,9 @@ async function loadStockAdjustPage(user) {
             }
 
             // Setup Search listeners now that products are loaded
-            setupProductSearch(inProductSearch, inProductHidden, inSearchResults, inBranchSelect, stockInCurrentStock, stockInCurrentValue);
-            setupProductSearch(outProductSearch, outProductHidden, outSearchResults, outBranchSelect, stockOutCurrentStock, stockOutCurrentValue);
+            // Pass the buttons!
+            setupProductSearch(inSearchBtn, inProductSearch, inProductHidden, inSearchResults, inBranchSelect, stockInCurrentStock, stockInCurrentValue);
+            setupProductSearch(outSearchBtn, outProductSearch, outProductHidden, outSearchResults, outBranchSelect, stockOutCurrentStock, stockOutCurrentValue);
 
 
         } catch (error) {
@@ -508,7 +543,6 @@ async function loadStockAdjustPage(user) {
         loadStockLevelsTable(levelBranchFilter.value);
     });
     
-    // Branch change listeners to update stock if product is already selected
     inBranchSelect.addEventListener('change', () => {
          if(inProductHidden.value) fetchCurrentStock(inProductHidden.value, inBranchSelect.value, stockInCurrentStock, stockInCurrentValue);
     });

@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const productGrid = document.getElementById('product-grid');
     const categoryFilter = document.getElementById('category-filter');
+    const productSearch = document.getElementById('product-search');
     const loadingSpinner = document.getElementById('loading-spinner');
     const noProductsMessage = document.getElementById('no-products-message');
     const categorySlider = document.getElementById('category-slider');
@@ -158,19 +159,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Filters products based on the selected category
+     * Filters products based on the selected category and search term
      */
     function filterProducts() {
         const selectedCategoryId = categoryFilter.value;
+        const searchTerm = productSearch ? productSearch.value.toLowerCase() : '';
         
-        if (selectedCategoryId === 'all') {
-            displayProducts(allProducts);
-        } else {
-            const filteredProducts = allProducts.filter(product => 
-                product.category_id == selectedCategoryId
-            );
-            displayProducts(filteredProducts);
-        }
+        const filteredProducts = allProducts.filter(product => {
+            const matchesCategory = selectedCategoryId === 'all' || product.category_id == selectedCategoryId;
+            
+            const productName = product.name ? product.name.toLowerCase() : '';
+            const productDesc = product.description ? product.description.toLowerCase() : '';
+            const matchesSearch = productName.includes(searchTerm) || productDesc.includes(searchTerm);
+            
+            return matchesCategory && matchesSearch;
+        });
+        
+        displayProducts(filteredProducts);
     }
 
     function showLoading(isLoading) {
@@ -195,6 +200,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners ---
     categoryFilter.addEventListener('change', filterProducts);
+    if (productSearch) {
+        productSearch.addEventListener('input', filterProducts);
+    }
 
     // --- Initial Load ---
     async function init() {

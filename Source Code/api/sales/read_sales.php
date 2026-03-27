@@ -1,10 +1,8 @@
 <?php
-// This API fetches sale headers with filtering based on user role and date.
 session_start();
 include_once '../../config/database.php';
 header('Content-Type: application/json');
 
-// Security check: Ensure user is logged in
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized. Please log in.']);
@@ -12,30 +10,27 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 $user_role = $_SESSION['role'];
-// CRITICAL FIX: The branch_id MUST be fetched from the user's session data
 $user_branch_id = $_SESSION['branch_id'] ?? null; 
 
-// Get filters from query string
 $start_date = $_GET['start_date'] ?? null;
 $end_date = $_GET['end_date'] ?? null;
 $filter_branch_id = $_GET['branch_id'] ?? null;
+// NEW filters
+$customer_id = $_GET['customer_id'] ?? null;
+$payment_method = $_GET['payment_method'] ?? null;
 
 $where_clauses = [];
 $bindings = [];
 
 try {
-    // --- Role-Based Filtering ---
     if ($user_role === 'staff' && $user_branch_id) {
-        // Staff: Lock to their assigned branch
         $where_clauses[] = "s.branch_id = :user_branch_id";
         $bindings[':user_branch_id'] = $user_branch_id;
     } elseif ($user_role === 'admin' && $filter_branch_id) {
-        // Admin: Filter by selected branch (if provided)
         $where_clauses[] = "s.branch_id = :filter_branch_id";
         $bindings[':filter_branch_id'] = $filter_branch_id;
     }
     
-    // --- Date Filtering ---
     if ($start_date) {
         $where_clauses[] = "DATE(s.sale_date) >= :start_date";
         $bindings[':start_date'] = $start_date;
@@ -44,20 +39,30 @@ try {
         $where_clauses[] = "DATE(s.sale_date) <= :end_date";
         $bindings[':end_date'] = $end_date;
     }
+    
+    // UPDATED: Filter by Customer ID (for credit management)
+    if ($customer_id) {
+        $where_clauses[] = "s.customer_id = :cust_id";
+        $bindings[':cust_id'] = $customer_id;
+    }
+    
+    // UPDATED: Filter by Payment Method
+    if ($payment_method) {
+        $where_clauses[] = "s.payment_method = :pay_method";
+        $bindings[':pay_method'] = $payment_method;
+    }
 
     $where_sql = count($where_clauses) > 0 ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
-    // --- Main Query ---
-    // We query the 'sales' header table and aggregate total items sold for display.
     $query = "SELECT 
                 s.sale_id, 
                 s.sale_date, 
                 s.total_amount, 
                 s.is_reversed,
                 s.reversal_user_id,
+                s.payment_method,
                 b.branch_name,
                 u.name AS user_name,
-                -- Get total items sold for display
                 SUM(si.quantity) AS total_items_sold
               FROM 
                 sales s

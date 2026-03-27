@@ -85,9 +85,21 @@ try {
     $stmt_sum->execute($params);
     $summary = $stmt_sum->fetch(PDO::FETCH_ASSOC);
 
+    // 3. Prepare Chart Data (Chronological Order)
+    $chart_data = [];
+    $chart_rows = array_reverse($rows); // Original rows are DESC, charts need ASC
+    foreach ($chart_rows as $r) {
+        $chart_data[] = [
+            'date' => $r['period_label'],
+            'revenue' => (float)$r['revenue'],
+            'transactions' => (int)$r['transaction_count']
+        ];
+    }
+
     echo json_encode([
         'summary' => $summary,
-        'rows' => $rows
+        'rows' => $rows,
+        'chart' => $chart_data
     ]);
 
 } catch (PDOException $e) {

@@ -9,6 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const importBtn = document.getElementById('import-csv-btn');
     const csvFileInput = document.getElementById('csv-file-input');
     
+    // NEW: Search Input & Button
+    const searchInput = document.getElementById('product-list-search');
+    const searchBtn = document.getElementById('product-search-btn');
+
     const tabProducts = document.getElementById('tab-products');
     const tabCategories = document.getElementById('tab-categories');
     const viewProducts = document.getElementById('view-products');
@@ -24,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const browseMediaBtn = document.getElementById('browse-media-btn');
     const productVisible = document.getElementById('product-visible');
     
-    // Get ID input reference (will also re-fetch in submit to be safe)
+    // Get ID input reference
     const productIdInput = document.getElementById('product-id'); 
 
     const addCategoryBtn = document.getElementById('add-category-btn');
@@ -44,49 +48,115 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let allProducts = [];
     let allCategories = [];
+    let allBranchesForExport = [];
     let deleteTarget = null;
+
+    // Pagination State
+    let currentPage = 1;
+    const limit = 50;
+    let currentSearch = '';
+    let totalPages = 1;
 
     // --- Initialization ---
     loadProductCategories(); 
     loadProductsTable();     
 
-    // --- EXPORT LOGIC (Updated to use Category Name) ---
-    if(exportBtn) {
-        exportBtn.addEventListener('click', () => {
-            if (!allProducts || allProducts.length === 0) {
-                alert("No products data available to export yet.");
-                return;
+    // Helper: Load branches for export headers
+    async function fetchBranchesForExport() {
+        try {
+            const res = await fetch('api/manage/branches_crud.php');
+            if(res.ok) {
+                allBranchesForExport = await res.json();
             }
-            // Header now explicitly says "Category Name"
-            const headers = ["Name", "Code", "Category Name", "Price", "Cost", "Reorder Level", "Description", "Image URL", "Is Visible (1=Yes, 0=No)"];
-            const rows = [headers.join(",")];
-            
-            allProducts.forEach(p => {
-                const row = [
-                    `"${p.name.replace(/"/g, '""')}"`,
-                    `"${p.product_code || ''}"`,
-                    // FIX: Export category_name instead of category_id
-                    `"${(p.category_name || '').replace(/"/g, '""')}"`,
-                    p.price || 0,
-                    p.cost || 0,
-                    p.reorder_level || 0,
-                    `"${(p.description || '').replace(/"/g, '""').replace(/(\r\n|\n|\r)/gm, ' ')}"`,
-                    p.image || '',
-                    p.is_visible || 1
-                ];
-                rows.push(row.join(","));
-            });
+        } catch(e) { console.error("Failed to load branches for export", e); }
+    }
+    fetchBranchesForExport();
 
-            const csvString = rows.join("\n");
-            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.setAttribute("href", url);
-            link.setAttribute("download", "products_export_" + new Date().toISOString().slice(0,10) + ".csv");
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+
+    // (Server-side search logic is now handled below with loadProductsTable)
+    if (searchBtn && searchInput) {
+        searchBtn.addEventListener('click', () => {
+             // call the new performSearch defined lower in the file
+             if (typeof performSearch === 'function') {
+                 performSearch();
+             }
+        });
+        
+        // Also allow Enter key
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                if (typeof performSearch === 'function') {
+                    performSearch();
+                }
+            }
+        });
+    }
+
+
+    // --- EXPORT LOGIC ---
+    if(exportBtn) {
+        exportBtn.addEventListener('click', async () => {
+            const originalText = exportBtn.innerHTML;
+            exportBtn.disabled = true;
+            exportBtn.textContent = 'Generating...';
+
+            try {
+                // Fetch the full list specifically for export
+                const exportRes = await fetch('api/products/crud.php?export=1');
+                if (!exportRes.ok) throw new Error("Failed to fetch full data for export.");
+                const exportData = await exportRes.json();
+
+                if (!exportData || exportData.length === 0) {
+                    alert("No products data available to export.");
+                    return;
+                }
+
+                if(allBranchesForExport.length === 0) await fetchBranchesForExport();
+                
+                let headers = ["Name", "Code", "Category Name", "Price", "Cost", "Reorder Level", "Description", "Image URL", "Is Visible (1=Yes, 0=No)"];
+                allBranchesForExport.forEach(b => { headers.push(b.branch_name); });
+
+                const headerRow = headers.map(h => `"${h.replace(/"/g, '""')}"`).join(",");
+                const rows = [headerRow];
+                
+                exportData.forEach(p => {
+                    let row = [
+                        `"${p.name.replace(/"/g, '""')}"`,
+                        `"${p.product_code || ''}"`,
+                        `"${(p.category_name || '').replace(/"/g, '""')}"`,
+                        p.price || 0,
+                        p.cost || 0,
+                        p.reorder_level || 0,
+                        `"${(p.description || '').replace(/"/g, '""').replace(/(\r\n|\n|\r)/gm, ' ')}"`,
+                        p.image || '',
+                        p.is_visible || 1
+                    ];
+
+                    allBranchesForExport.forEach(b => {
+                        const stockVal = (p.stock_data && p.stock_data[b.branch_name]) ? p.stock_data[b.branch_name] : 0;
+                        row.push(stockVal);
+                    });
+
+                    rows.push(row.join(","));
+                });
+
+                const csvString = rows.join("\n");
+                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", "products_stock_export_" + new Date().toISOString().slice(0,10) + ".csv");
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch(e) {
+                console.error(e);
+                alert("Export failed: " + e.message);
+            } finally {
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = originalText;
+            }
         });
     }
 
@@ -166,49 +236,115 @@ document.addEventListener('DOMContentLoaded', () => {
         if(productLoader) productLoader.classList.remove('hidden');
         if(productContainer) productContainer.classList.add('hidden');
         if(productNoItems) productNoItems.classList.add('hidden');
+        const paginationUI = document.getElementById('products-pagination');
+        if(paginationUI) paginationUI.classList.add('hidden');
 
         try {
-            const response = await fetch('api/products/crud.php');
+            const queryParams = new URLSearchParams({
+                page: currentPage,
+                limit: limit,
+                search: currentSearch
+            });
+            const response = await fetch(`api/products/crud.php?${queryParams.toString()}`);
             if (!response.ok) throw new Error('Failed to load products');
-            allProducts = await response.json();
             
-            if(productTableBody) productTableBody.innerHTML = '';
-            if (allProducts.length === 0) {
-                if(productNoItems) productNoItems.classList.remove('hidden');
-            } else {
-                allProducts.forEach(product => {
-                    const isVisible = product.is_visible == 1;
-                    const statusBadge = isVisible 
-                        ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Visible</span>' 
-                        : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Hidden</span>';
+            const payload = await response.json();
+            
+            allProducts = payload.data || [];
+            totalPages = payload.total_pages || 1;
+            
+            renderProductTable(allProducts);
+            renderPaginationUI(payload);
 
-                    const row = `
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.name}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.product_code || '-'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.category_name || 'None'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">LKR ${parseFloat(product.price||0).toFixed(2)}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">LKR ${parseFloat(product.cost||0).toFixed(2)}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${statusBadge}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium admin-only ${userRole !== 'admin' ? 'hidden' : ''}">
-                                <button class="edit-prod-btn text-blue-600 hover:text-blue-900" data-id="${product.product_id}">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="delete-prod-btn text-red-600 hover:text-red-900 ml-3" data-id="${product.product_id}">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>`;
-                    if(productTableBody) productTableBody.innerHTML += row;
-                });
-                if(productContainer) productContainer.classList.remove('hidden');
-            }
         } catch (error) {
             console.error(error);
             if(productTableBody) productTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-red-500 p-4">Error loading products</td></tr>`;
             if(productContainer) productContainer.classList.remove('hidden');
         } finally {
             if(productLoader) productLoader.classList.add('hidden');
+        }
+    }
+
+    // Server-Side Search trigger
+    function performSearch() {
+        currentSearch = searchInput.value.toLowerCase().trim();
+        currentPage = 1; // Reset to page 1 on search
+        loadProductsTable();
+    }
+
+    // Pagination Navigation
+    const prevPageBtn = document.getElementById('prev-page-btn');
+    const nextPageBtn = document.getElementById('next-page-btn');
+
+    if (prevPageBtn && nextPageBtn) {
+        prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                loadProductsTable();
+            }
+        });
+
+        nextPageBtn.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadProductsTable();
+            }
+        });
+    }
+
+    function renderPaginationUI(payload) {
+        const paginationUI = document.getElementById('products-pagination');
+        if (!paginationUI) return;
+
+        if (payload.total === 0) {
+            paginationUI.classList.add('hidden');
+            return;
+        }
+
+        paginationUI.classList.remove('hidden');
+        document.getElementById('page-indicator').textContent = `Page ${payload.page} of ${payload.total_pages}`;
+        document.getElementById('total-records-indicator').textContent = payload.total;
+
+        if (prevPageBtn) prevPageBtn.disabled = payload.page <= 1;
+        if (nextPageBtn) nextPageBtn.disabled = payload.page >= payload.total_pages;
+    }
+
+    // NEW: Separated render function for searching
+    function renderProductTable(products) {
+        if(productTableBody) productTableBody.innerHTML = '';
+        
+        if (products.length === 0) {
+            if(productNoItems) productNoItems.classList.remove('hidden');
+            if(productContainer) productContainer.classList.add('hidden');
+        } else {
+            if(productNoItems) productNoItems.classList.add('hidden');
+            
+            products.forEach(product => {
+                const isVisible = product.is_visible == 1;
+                const statusBadge = isVisible 
+                    ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Visible</span>' 
+                    : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Hidden</span>';
+
+                const row = `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.product_code || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.category_name || 'None'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">LKR ${parseFloat(product.price||0).toFixed(2)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">LKR ${parseFloat(product.cost||0).toFixed(2)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${statusBadge}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium admin-only ${userRole !== 'admin' ? 'hidden' : ''}">
+                            <button class="edit-prod-btn text-blue-600 hover:text-blue-900" data-id="${product.product_id}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="delete-prod-btn text-red-600 hover:text-red-900 ml-3" data-id="${product.product_id}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+                if(productTableBody) productTableBody.innerHTML += row;
+            });
+            if(productContainer) productContainer.classList.remove('hidden');
         }
     }
 
@@ -278,15 +414,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentIdInput = document.getElementById('product-id');
             if(currentIdInput && currentIdInput.value) {
                 pid = currentIdInput.value;
-                data.product_id = pid; // Ensure it's in the payload
+                data.product_id = pid;
             }
         }
 
         const isEdit = (pid !== "" && pid !== null && pid !== undefined);
         const method = isEdit ? 'PUT' : 'POST';
         
-        console.log("Submitting Product:", method, data); // Debug log
-
         try {
             const res = await fetch('api/products/crud.php', {
                 method: method,

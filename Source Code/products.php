@@ -19,27 +19,40 @@ $user_role = $_SESSION['role'] ?? 'staff';
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h1 class="text-2xl font-bold text-gray-900">Inventory Management</h1>
                 
-                <!-- Action Buttons Container -->
-                <div class="flex flex-wrap gap-2">
-                    <!-- Export Button -->
-                    <button id="export-csv-btn" class="px-4 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 flex items-center">
-                        <i class="fas fa-file-export mr-2"></i>Export
-                    </button>
-                    
-                    <?php if($user_role === 'admin'): ?>
-                    <!-- Import Button & Hidden Input -->
-                    <button id="import-csv-btn" class="px-4 py-2 bg-orange-600 text-white rounded-md font-medium hover:bg-orange-700 flex items-center">
-                        <i class="fas fa-file-import mr-2"></i>Import
-                    </button>
-                    <input type="file" id="csv-file-input" accept=".csv" class="hidden">
+                <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                    <!-- UPDATED: Search Input with Button -->
+                    <div class="flex w-full md:w-auto">
+                        <div class="relative w-full md:w-64">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" id="product-list-search" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-l-md focus:ring-blue-500 focus:border-blue-500" placeholder="Search products...">
+                        </div>
+                        <button id="product-search-btn" class="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 font-medium">Search</button>
+                    </div>
 
-                    <button id="add-product-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700">
-                        <i class="fas fa-plus mr-2"></i>Product
-                    </button>
-                    <button id="add-category-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700">
-                        <i class="fas fa-tags mr-2"></i>Category
-                    </button>
-                    <?php endif; ?>
+                    <!-- Action Buttons Container -->
+                    <div class="flex flex-wrap gap-2">
+                        <!-- Export Button -->
+                        <button id="export-csv-btn" class="px-4 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 flex items-center">
+                            <i class="fas fa-file-export mr-2"></i>Export
+                        </button>
+                        
+                        <?php if($user_role === 'admin'): ?>
+                        <!-- Import Button & Hidden Input -->
+                        <button id="import-csv-btn" class="px-4 py-2 bg-orange-600 text-white rounded-md font-medium hover:bg-orange-700 flex items-center">
+                            <i class="fas fa-file-import mr-2"></i>Import
+                        </button>
+                        <input type="file" id="csv-file-input" accept=".csv" class="hidden">
+
+                        <button id="add-product-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700">
+                            <i class="fas fa-plus mr-2"></i>Product
+                        </button>
+                        <button id="add-category-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700">
+                            <i class="fas fa-tags mr-2"></i>Category
+                        </button>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
@@ -84,6 +97,30 @@ $user_role = $_SESSION['role'] ?? 'staff';
                         <i class="fas fa-box-open text-4xl text-gray-400"></i>
                         <p class="mt-2">No products found. Add one to get started!</p>
                     </div>
+
+                    <!-- Pagination Controls -->
+                    <div id="products-pagination" class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 hidden">
+                        <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-sm text-gray-700">
+                                    Showing <span class="font-medium" id="page-indicator">Page 1 of 1</span> 
+                                    (<span id="total-records-indicator">0</span> total items)
+                                </p>
+                            </div>
+                            <div>
+                                <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                                    <button id="prev-page-btn" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <span class="sr-only">Previous</span>
+                                        <i class="fas fa-chevron-left h-5 w-5" aria-hidden="true"></i>
+                                    </button>
+                                    <button id="next-page-btn" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <span class="sr-only">Next</span>
+                                        <i class="fas fa-chevron-right h-5 w-5" aria-hidden="true"></i>
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- VIEW: CATEGORIES -->
@@ -120,7 +157,8 @@ $user_role = $_SESSION['role'] ?? 'staff';
         <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-lg p-6 transform -translate-y-10">
             <h2 id="modal-title" class="text-2xl font-bold mb-4">Add New Product</h2>
             <form id="product-form">
-                <input type="hidden" id="product-id" name="product-id">
+                <!-- Important: Name must match API (product_id) -->
+                <input type="hidden" id="product-id" name="product_id">
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>

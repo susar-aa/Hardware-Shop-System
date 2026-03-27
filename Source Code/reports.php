@@ -30,15 +30,18 @@ $user_role = $_SESSION['role'] ?? 'staff';
             </div>
 
             <!-- Report Type Tabs -->
-            <div class="bg-white rounded-t-lg shadow-sm border-b border-gray-200 mb-0">
-                <nav class="flex -mb-px">
-                    <button id="tab-sales" class="tab-btn w-1/3 py-4 px-6 text-center border-b-2 font-medium text-sm text-blue-600 border-blue-500">
-                        <i class="fas fa-chart-line mr-2"></i> Sales
+            <div class="bg-white rounded-t-lg shadow-sm border-b border-gray-200 mb-0 overflow-x-auto">
+                <nav class="flex -mb-px min-w-max">
+                    <button id="tab-sales" class="tab-btn py-4 px-6 text-center border-b-2 font-medium text-sm text-blue-600 border-blue-500 whitespace-nowrap flex-1">
+                        <i class="fas fa-chart-line mr-2"></i> Sales & Revenue
                     </button>
-                    <button id="tab-inventory" class="tab-btn w-1/3 py-4 px-6 text-center border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    <button id="tab-receivables" class="tab-btn py-4 px-6 text-center border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap flex-1">
+                        <i class="fas fa-hand-holding-usd mr-2"></i> Receivables
+                    </button>
+                    <button id="tab-inventory" class="tab-btn py-4 px-6 text-center border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap flex-1">
                         <i class="fas fa-boxes mr-2"></i> Inventory
                     </button>
-                    <button id="tab-analytics" class="tab-btn w-1/3 py-4 px-6 text-center border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    <button id="tab-analytics" class="tab-btn py-4 px-6 text-center border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap flex-1">
                         <i class="fas fa-chart-pie mr-2"></i> P&L Analytics
                     </button>
                 </nav>
@@ -123,6 +126,11 @@ $user_role = $_SESSION['role'] ?? 'staff';
                     </div>
                 </div>
 
+                <!-- NEW: Sales Chart Section (Hidden on Inventory Tab) -->
+                <div id="sales-chart-container" class="bg-white p-4 rounded-lg shadow-md mb-6 h-80 hidden">
+                    <canvas id="salesChart"></canvas>
+                </div>
+
                 <!-- Report Table -->
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
                     <div class="overflow-x-auto">
@@ -137,6 +145,51 @@ $user_role = $_SESSION['role'] ?? 'staff';
                     <div id="report-empty" class="hidden py-12 text-center text-gray-500">
                         <i class="fas fa-chart-bar text-4xl text-gray-300 mb-3"></i>
                         <p>No data found.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RECEIVABLES REPORT VIEW -->
+            <div id="view-receivables" class="hidden">
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500">
+                        <div class="text-gray-500 text-xs font-bold uppercase">Total Outstanding Credit</div>
+                        <div class="text-xl font-bold text-red-700 mt-1" id="rec-metric-1">LKR 0.00</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+                        <div class="text-gray-500 text-xs font-bold uppercase">Credit Collected (Period)</div>
+                        <div class="text-xl font-bold text-gray-900 mt-1" id="rec-metric-2">LKR 0.00</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-orange-500">
+                        <div class="text-gray-500 text-xs font-bold uppercase">Total Pending Cheques</div>
+                        <div class="text-xl font-bold text-gray-900 mt-1" id="rec-metric-3">LKR 0.00</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+                        <div class="text-gray-500 text-xs font-bold uppercase">Cheques Cleared (Period)</div>
+                        <div class="text-xl font-bold text-gray-900 mt-1" id="rec-metric-4">LKR 0.00</div>
+                    </div>
+                </div>
+
+                <!-- Receivables Chart Section -->
+                <div class="bg-white p-4 rounded-lg shadow-md mb-6 h-80">
+                    <canvas id="receivablesChart"></canvas>
+                </div>
+
+                <!-- Report Table -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200" id="rec-reports-table">
+                            <thead class="bg-gray-50">
+                                <tr id="rec-table-headers"></tr>
+                            </thead>
+                            <tbody id="rec-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                    <div id="rec-report-loader" class="hidden py-12 flex justify-center"><div class="loader"></div></div>
+                    <div id="rec-report-empty" class="hidden py-12 text-center text-gray-500">
+                        <i class="fas fa-hand-holding-usd text-4xl text-gray-300 mb-3"></i>
+                        <p>No collection data found for this period.</p>
                     </div>
                 </div>
             </div>

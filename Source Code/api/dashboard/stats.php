@@ -108,12 +108,83 @@ try {
     $stmt_stock->execute($stock_params);
     $low_stock = $stmt_stock->fetch(PDO::FETCH_ASSOC)['count'];
 
-    echo json_encode([
-        'cards' => $summary,
-        'chart' => $final_chart,
-        'recent' => $recent_sales,
-        'low_stock' => $low_stock
-    ]);
+    // 5. Admin-Only Additions: Payment Methods Mix and Cheque Reminders
+    $payment_methods = [];
+    $cheque_reminders = [];
+
+    if ($user_role === 'admin') {
+        // Payment Methods (Last 30 Days)
+        $pm_query = "
+            SELECT s.payment_method, SUM(s.total_amount) as total
+            FROM sales s
+            $where_sql AND s.sale_date >= DATE(NOW()) - INTERVAL 30 DAY
+            GROUP BY s.payment_method
+        ";
+        $stmt_pm = $pdo->prepare($pm_query);
+        $stmt_pm->execute($params);
+        $pm_rows = $stmt_pm->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($pm_rows as $row) {
+            $payment_methods[ucfirst($row['payment_method'])] = (float)$row['total'];
+        }
+
+        // Cheque Reminders (Pending/Banked cheques due soon)
+        // We look for cheques where the banked date is today, tomorrow, or within the next 7 days, or overdue.
+        // DATEDIFF(cheque_date, CURDATE()) gives: < 0 (Overdue), 0 (Today), 1 (Tomorrow), > 1 (Upcoming)
+        $cheque_query = "
+            SELECT 
+                cq.payment_id, cq.cheque_number, cq.bank_name, cq.amount, cq.cheque_date,
+                c.name as customer_name,
+                DATEDIFF(cq.cheque_date, CURDATE()) as days_until
+            FROM cheque_payments cq
+            LEFT JOIN sales s ON cq.sale_id = s.sale_id
+            LEFT JOIN customers c ON cq.customer_id = c.customer_id
+            WHERE cq.status IN ('pending', 'banked') 
+            AND " . implode(' AND ', $where_clauses) . "
+            ORDER BY cq.cheque_date ASC
+            LIMIT 10
+        ";
+        $stmt_cq = $pdo->prepare($cheque_query);
+        $stmt_cq->execute($params);
+        $cheque_data = $stmt_cq->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($cheque_data as $cq) {
+            $urgency = 'upcoming'; // default
+            if ($cq['days_until'] < 0) {
+                $urgency = 'overdue';
+            } elseif ($cq['days_until'] == 0) {
+                $urgency = 'today';
+            } elseif ($cq['days_until'] == 1) {
+                $urgency = 'tomorrow';
+            }
+
+            $cheque_reminders[] = [
+                'id' => $cq['payment_id'],
+                'cheque_number' => $cq['cheque_number'],
+                'bank' => $cq['bank_name'],
+                'amount' => (float)$cq['amount'],
+                'date' => $cq['cheque_date'],
+                'customer' => $cq['customer_name'] ?? 'Walk-in',
+                'urgency' => $urgency,
+                'days_until' => (int)$cq['days_until']
+            ];
+        }
+    }
+
+    // Role-based payload
+    $response = [
+        'cards' => $summary
+    ];
+
+    if ($user_role === 'admin') {
+        $response['chart'] = $final_chart;
+        $response['recent'] = $recent_sales;
+        $response['low_stock'] = $low_stock;
+        $response['payment_methods'] = $payment_methods;
+        $response['cheque_reminders'] = $cheque_reminders;
+    }
+
+    echo json_encode($response);
 
 } catch (PDOException $e) {
     http_response_code(500);

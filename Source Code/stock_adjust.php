@@ -52,7 +52,10 @@ include 'admin/_sidebar.php';
                             <!-- UPDATED: Product Search -->
                             <div class="mb-4 relative">
                                 <label for="stock-in-product-search" class="block text-sm font-medium text-gray-700">Product *</label>
-                                <input type="text" id="stock-in-product-search" placeholder="Type to search product..." class="mt-1 w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
+                                <div class="flex">
+                                    <input type="text" id="stock-in-product-search" placeholder="Type to search product..." class="mt-1 w-full border border-gray-300 rounded-l-md p-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
+                                    <button type="button" id="stock-in-search-btn" class="mt-1 px-4 bg-blue-600 text-white rounded-r-md hover:bg-blue-700">Search</button>
+                                </div>
                                 <input type="hidden" id="stock-in-product-id" name="product_id" required>
                                 <!-- Search Results Dropdown -->
                                 <div id="stock-in-results" class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-y-auto"></div>
@@ -100,7 +103,10 @@ include 'admin/_sidebar.php';
                             <!-- UPDATED: Product Search -->
                             <div class="mb-4 relative">
                                 <label for="stock-out-product-search" class="block text-sm font-medium text-gray-700">Product *</label>
-                                <input type="text" id="stock-out-product-search" placeholder="Type to search product..." class="mt-1 w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
+                                <div class="flex">
+                                    <input type="text" id="stock-out-product-search" placeholder="Type to search product..." class="mt-1 w-full border border-gray-300 rounded-l-md p-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
+                                    <button type="button" id="stock-out-search-btn" class="mt-1 px-4 bg-blue-600 text-white rounded-r-md hover:bg-blue-700">Search</button>
+                                </div>
                                 <input type="hidden" id="stock-out-product-id" name="product_id" required>
                                 <!-- Search Results Dropdown -->
                                 <div id="stock-out-results" class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-y-auto"></div>
@@ -140,12 +146,24 @@ include 'admin/_sidebar.php';
                     <!-- Stock Levels Panel -->
                     <div id="panel-stock-levels" class="tab-panel">
                         <div class="bg-white rounded-lg shadow-md p-6">
-                            <!-- Branch Filter -->
-                            <div class="mb-4 max-w-sm">
-                                <label for="stock-level-branch-filter" class="block text-sm font-medium text-gray-700">Select Branch</label>
-                                <select id="stock-level-branch-filter" name="branch_id" class="mt-1 w-full border border-gray-300 rounded-md p-2" required>
-                                    <option value="">Loading branches...</option>
-                                </select>
+                            
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-4 gap-4">
+                                <!-- Branch Filter -->
+                                <div class="w-full md:w-1/3">
+                                    <label for="stock-level-branch-filter" class="block text-sm font-medium text-gray-700">Select Branch</label>
+                                    <select id="stock-level-branch-filter" name="branch_id" class="mt-1 w-full border border-gray-300 rounded-md p-2" required>
+                                        <option value="">Loading branches...</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- UPDATED: Stock Search with Button -->
+                                <div class="w-full md:w-1/3">
+                                    <label for="stock-level-search" class="block text-sm font-medium text-gray-700">Search Product</label>
+                                    <div class="flex">
+                                        <input type="text" id="stock-level-search" class="mt-1 w-full border border-gray-300 rounded-l-md p-2" placeholder="Name or Code...">
+                                        <button type="button" id="stock-level-search-btn" class="mt-1 px-4 bg-blue-600 text-white rounded-r-md hover:bg-blue-700">Search</button>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Stock Table -->

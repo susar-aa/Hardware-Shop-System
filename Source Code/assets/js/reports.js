@@ -9,11 +9,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabSales = document.getElementById('tab-sales');
     const tabInventory = document.getElementById('tab-inventory');
     const tabAnalytics = document.getElementById('tab-analytics');
+    const tabReceivables = document.getElementById('tab-receivables');
     let currentTab = 'sales'; 
 
     // Views
     const viewStandard = document.getElementById('view-standard');
     const viewAnalytics = document.getElementById('view-analytics');
+    const viewReceivables = document.getElementById('view-receivables');
 
     // Filters
     const filterPeriod = document.getElementById('report-period');
@@ -43,6 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const plProfit = document.getElementById('pl-profit');
 
     let chartInstance = null;
+    let salesChartInstance = null;
+    let recChartInstance = null;
 
     // --- Init ---
     
@@ -126,45 +130,70 @@ document.addEventListener('DOMContentLoaded', () => {
     function switchTab(tab) {
         currentTab = tab;
         
-        [tabSales, tabInventory, tabAnalytics].forEach(t => {
-            t.classList.remove('text-blue-600', 'border-blue-500');
-            t.classList.add('text-gray-500', 'border-transparent');
+        [tabSales, tabInventory, tabAnalytics, tabReceivables].forEach(t => {
+            if(t) {
+                t.classList.remove('text-blue-600', 'border-blue-500');
+                t.classList.add('text-gray-500', 'border-transparent');
+            }
         });
 
         if (tab === 'sales') {
             tabSales.classList.add('text-blue-600', 'border-blue-500');
             viewStandard.classList.remove('hidden');
             viewAnalytics.classList.add('hidden');
+            if(viewReceivables) viewReceivables.classList.add('hidden');
+            
+            document.getElementById('sales-chart-container').classList.remove('hidden');
             document.getElementById('filter-period-wrapper').classList.remove('hidden');
             exportBtn.classList.remove('hidden');
             
             labelMetric1.textContent = 'Total Revenue';
             labelMetric2.textContent = 'Total Items Sold';
             labelMetric3.textContent = 'Transactions';
+            
+        } else if (tab === 'receivables') {
+            if(tabReceivables) tabReceivables.classList.add('text-blue-600', 'border-blue-500');
+            viewStandard.classList.add('hidden');
+            viewAnalytics.classList.add('hidden');
+            if(viewReceivables) viewReceivables.classList.remove('hidden');
+            
+            document.getElementById('filter-period-wrapper').classList.remove('hidden');
+            exportBtn.classList.remove('hidden');
+
         } else if (tab === 'inventory') {
             tabInventory.classList.add('text-blue-600', 'border-blue-500');
             viewStandard.classList.remove('hidden');
             viewAnalytics.classList.add('hidden');
+            if(viewReceivables) viewReceivables.classList.add('hidden');
+            
+            document.getElementById('sales-chart-container').classList.add('hidden');
             document.getElementById('filter-period-wrapper').classList.add('hidden');
             exportBtn.classList.remove('hidden');
 
             labelMetric1.textContent = 'Total Stock Value';
             labelMetric2.textContent = 'Items Sold (Period)';
             labelMetric3.textContent = 'Stock On Hand';
+            
         } else {
             tabAnalytics.classList.add('text-blue-600', 'border-blue-500');
             viewStandard.classList.add('hidden');
+            if(viewReceivables) viewReceivables.classList.add('hidden');
             viewAnalytics.classList.remove('hidden');
             document.getElementById('filter-period-wrapper').classList.remove('hidden');
             exportBtn.classList.add('hidden'); 
         }
         
-        tableBody.innerHTML = '';
-        tableHeaders.innerHTML = '';
-        metric1Value.textContent = '-';
-        metric2Value.textContent = '-';
-        metric3Value.textContent = '-';
-        emptyState.classList.remove('hidden');
+        if (tableBody) tableBody.innerHTML = '';
+        if (tableHeaders) tableHeaders.innerHTML = '';
+        if (metric1Value) metric1Value.textContent = '-';
+        if (metric2Value) metric2Value.textContent = '-';
+        if (metric3Value) metric3Value.textContent = '-';
+        if (emptyState) emptyState.classList.remove('hidden');
+        
+        const recBody = document.getElementById('rec-table-body');
+        const recEmpty = document.getElementById('rec-report-empty');
+        if (recBody) recBody.innerHTML = '';
+        if (recEmpty) recEmpty.classList.remove('hidden');
     }
 
     async function generateReport() {
@@ -185,6 +214,11 @@ document.addEventListener('DOMContentLoaded', () => {
             loadAnalytics(params);
             return;
         }
+        
+        if (currentTab === 'receivables') {
+            loadReceivables(params);
+            return;
+        }
 
         loader.classList.remove('hidden');
         emptyState.classList.add('hidden');
@@ -202,6 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             updateStandardSummary(data.summary);
             renderTable(data.rows);
+            
+            if (currentTab === 'sales' && data.chart) {
+                renderSalesChart(data.chart);
+            }
 
         } catch (error) {
             console.error('Report Error:', error);
@@ -350,13 +388,175 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- NEW: Sales Line Chart ---
+    function renderSalesChart(chartData) {
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        if (salesChartInstance) salesChartInstance.destroy();
+
+        const labels = chartData.map(d => d.date);
+        const revenueData = chartData.map(d => d.revenue);
+
+        salesChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Revenue Trend',
+                        data: revenueData,
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderColor: 'rgb(16, 185, 129)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: 'rgb(16, 185, 129)'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // --- NEW: Receivables Logic ---
+    async function loadReceivables(params) {
+        const recLoader = document.getElementById('rec-report-loader');
+        const recEmpty = document.getElementById('rec-report-empty');
+        const recBody = document.getElementById('rec-table-body');
+        const recHeaders = document.getElementById('rec-table-headers');
+        
+        recLoader.classList.remove('hidden');
+        recEmpty.classList.add('hidden');
+        recBody.innerHTML = '';
+        recHeaders.innerHTML = '';
+
+        try {
+            const response = await fetch(`api/reports/receivables_metrics.php?${params.toString()}`);
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+
+            const fmt = (num) => `LKR ${parseFloat(num || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            
+            // Update Metric Cards
+            document.getElementById('rec-metric-1').textContent = fmt(data.summary.total_outstanding_credit);
+            document.getElementById('rec-metric-2').textContent = fmt(data.summary.period_credit_collected);
+            document.getElementById('rec-metric-3').textContent = fmt(data.summary.total_pending_cheques);
+            document.getElementById('rec-metric-4').textContent = fmt(data.summary.period_cheques_cleared);
+
+            renderReceivablesChart(data.chart);
+            renderReceivablesTable(data.rows, recHeaders, recBody, recEmpty);
+
+        } catch (error) {
+            console.error('Receivables Error:', error);
+            recBody.innerHTML = `<tr><td colspan="100%" class="text-center p-4 text-red-500">Error: ${error.message}</td></tr>`;
+        } finally {
+            recLoader.classList.add('hidden');
+        }
+    }
+
+    function renderReceivablesTable(rows, headEl, bodyEl, emptyEl) {
+        if (!rows || rows.length === 0) {
+            emptyEl.classList.remove('hidden');
+            return;
+        }
+        
+        const period = filterPeriod.value;
+        const timeLabel = period === 'daily' ? 'Date' : (period === 'monthly' ? 'Month' : 'Year');
+
+        const columns = [
+            { header: timeLabel, key: 'period_label' },
+            { header: 'Credit Collected', key: 'credit_collected', format: 'money' },
+            { header: 'Cheques Cleared', key: 'cheques_cleared', format: 'money' }
+        ];
+
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+            th.textContent = col.header;
+            headEl.appendChild(th);
+        });
+
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+            
+            columns.forEach(col => {
+                const td = document.createElement('td');
+                td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-900';
+                
+                let val = row[col.key];
+                if (col.format === 'money') {
+                    val = `LKR ${parseFloat(val || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+                }
+                td.textContent = val || (val === 0 ? '0' : '-'); 
+                
+                tr.appendChild(td);
+            });
+            bodyEl.appendChild(tr);
+        });
+    }
+
+    function renderReceivablesChart(chartData) {
+        const ctx = document.getElementById('receivablesChart').getContext('2d');
+        if (recChartInstance) recChartInstance.destroy();
+
+        const labels = chartData.map(d => d.date);
+        const creditData = chartData.map(d => d.credit);
+        const chequeData = chartData.map(d => d.cheque);
+
+        recChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Credit Collected',
+                        data: creditData,
+                        backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                        borderColor: 'rgb(34, 197, 94)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Cheques Cleared',
+                        data: chequeData,
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                        borderColor: 'rgb(59, 130, 246)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true }
+                }
+            }
+        });
+    }
+
     function exportTableToCSV() {
         const rows = [];
         const headers = [];
-        tableHeaders.querySelectorAll('th').forEach(th => headers.push(th.innerText));
+        
+        let targetHeaders = tableHeaders;
+        let targetBody = tableBody;
+
+        if (currentTab === 'receivables') {
+            targetHeaders = document.getElementById('rec-table-headers');
+            targetBody = document.getElementById('rec-table-body');
+        }
+        
+        targetHeaders.querySelectorAll('th').forEach(th => headers.push(th.innerText));
         rows.push(headers.join(','));
 
-        tableBody.querySelectorAll('tr').forEach(tr => {
+        targetBody.querySelectorAll('tr').forEach(tr => {
             const rowData = [];
             tr.querySelectorAll('td').forEach(td => {
                 let text = td.innerText.replace(/(\r\n|\n|\r)/gm, "").trim();
@@ -375,13 +575,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "report.csv");
+        link.setAttribute("download", `report_${currentTab}_${new Date().toISOString().slice(0,10)}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
 
     tabSales.addEventListener('click', () => switchTab('sales'));
+    if(tabReceivables) tabReceivables.addEventListener('click', () => switchTab('receivables'));
     tabInventory.addEventListener('click', () => switchTab('inventory'));
     tabAnalytics.addEventListener('click', () => switchTab('analytics'));
     generateBtn.addEventListener('click', generateReport);

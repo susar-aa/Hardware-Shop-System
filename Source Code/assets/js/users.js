@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const modalTitle = document.getElementById('modal-title');
         const userIdInput = document.getElementById('user-id');
         const userNameInput = document.getElementById('user-name');
-        const userEmailInput = document.getElementById('user-email'); // Changed from userUsernameInput
+        const userEmailInput = document.getElementById('user-email'); 
         const userRoleInput = document.getElementById('user-role');
         const userPasswordInput = document.getElementById('user-password');
         const passwordHelp = document.getElementById('password-help');
@@ -36,7 +36,183 @@ document.addEventListener('DOMContentLoaded', () => {
         let allUsers = [];
         let userIdToDelete = null;
 
-        // --- Load Table ---
+
+        // --- Event Listeners (Attached Immediately) ---
+
+        // Add User Button
+        if (addUserBtn) {
+            addUserBtn.addEventListener('click', () => {
+                userForm.reset();
+                userIdInput.value = '';
+                modalTitle.textContent = 'Add New User';
+                passwordHelp.textContent = 'Required when creating a new user.';
+                userPasswordInput.required = true;
+                
+                // Handle branch visibility for new user based on current role selection (default)
+                if (userRoleInput.value === 'staff') {
+                    if(userBranchWrapper) userBranchWrapper.classList.remove('hidden');
+                    if(userBranchInput) userBranchInput.required = true;
+                } else {
+                    if(userBranchWrapper) userBranchWrapper.classList.add('hidden');
+                    if(userBranchInput) userBranchInput.required = false;
+                }
+                
+                openModal(userModal);
+            });
+        }
+
+        // Show/Hide Branch Dropdown based on Role
+        if (userRoleInput) {
+            userRoleInput.addEventListener('change', () => {
+                if (userRoleInput.value === 'staff') {
+                    if(userBranchWrapper) userBranchWrapper.classList.remove('hidden');
+                    if(userBranchInput) userBranchInput.required = true;
+                } else {
+                    if(userBranchWrapper) userBranchWrapper.classList.add('hidden');
+                    if(userBranchInput) userBranchInput.required = false;
+                    if(userBranchInput) userBranchInput.value = ''; // Clear selection
+                }
+            });
+        }
+
+        // Edit/Delete Button (Event Delegation)
+        if (tableBody) {
+            tableBody.addEventListener('click', (e) => {
+                const editBtn = e.target.closest('.edit-btn');
+                const delBtn = e.target.closest('.delete-btn');
+
+                if (editBtn) {
+                    const userId = editBtn.dataset.id;
+                    const user = allUsers.find(u => u.user_id == userId);
+                    if (user) {
+                        userForm.reset();
+                        modalTitle.textContent = 'Edit User';
+                        userIdInput.value = user.user_id;
+                        userNameInput.value = user.name;
+                        userEmailInput.value = user.email;
+                        userRoleInput.value = user.role;
+                        passwordHelp.textContent = 'Leave blank to keep password unchanged.';
+                        userPasswordInput.required = false;
+
+                        // Handle branch visibility and selection for existing user
+                        if (user.role === 'staff') {
+                            if(userBranchWrapper) userBranchWrapper.classList.remove('hidden');
+                            if(userBranchInput) {
+                                userBranchInput.required = true;
+                                userBranchInput.value = user.branch_id || '';
+                            }
+                        } else {
+                            if(userBranchWrapper) userBranchWrapper.classList.add('hidden');
+                            if(userBranchInput) {
+                                userBranchInput.required = false;
+                                userBranchInput.value = '';
+                            }
+                        }
+                        
+                        openModal(userModal);
+                    }
+                }
+
+                if (delBtn) {
+                    userIdToDelete = delBtn.dataset.id;
+                    deleteUserName.textContent = delBtn.dataset.name;
+                    deleteError.classList.add('hidden');
+                    openModal(deleteModal);
+                }
+            });
+        }
+
+        // Form Submit (Add/Edit)
+        if (userForm) {
+            userForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving...';
+                formError.classList.add('hidden');
+
+                const formData = new FormData(userForm);
+                const userData = Object.fromEntries(formData.entries());
+                const isEditing = userData.user_id;
+
+                // Handle password: if it's empty, remove it so we don't send an empty string
+                if (!userData.password) {
+                    delete userData.password;
+                }
+
+                // Handle branch_id based on role
+                if (userData.role === 'admin') {
+                    userData.branch_id = null;
+                } else {
+                    userData.branch_id = userData.branch_id || null;
+                }
+
+                const url = 'api/manage/users_crud.php';
+                const method = isEditing ? 'PUT' : 'POST';
+
+                try {
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(userData)
+                    });
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result.error || 'Failed to save user');
+                    }
+                    closeModal(userModal);
+                    await loadUsersTable();
+                } catch (error) {
+                    formError.textContent = error.message;
+                    formError.classList.remove('hidden');
+                } finally {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save User';
+                }
+            });
+        }
+
+        // Delete Confirmation
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', async () => {
+                if (!userIdToDelete) return;
+
+                confirmDeleteBtn.disabled = true;
+                confirmDeleteBtn.textContent = 'Deleting...';
+                deleteError.classList.add('hidden');
+
+                try {
+                    const response = await fetch(`api/manage/users_crud.php?id=${userIdToDelete}`, {
+                        method: 'DELETE'
+                    });
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result.error || 'Failed to delete user');
+                    }
+                    closeModal(deleteModal);
+                    await loadUsersTable();
+                } catch (error) {
+                    deleteError.textContent = error.message;
+                    deleteError.classList.remove('hidden');
+                } finally {
+                    confirmDeleteBtn.disabled = false;
+                    confirmDeleteBtn.textContent = 'Delete';
+                    userIdToDelete = null;
+                }
+            });
+        }
+
+        // Modal Cancel Buttons
+        if (cancelBtn) cancelBtn.addEventListener('click', () => closeModal(userModal));
+        if (cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', () => closeModal(deleteModal));
+
+
+        // --- Load Data ---
+        loadBranchesDropdown(); 
+        loadUsersTable();
+
+
+        // --- Functions ---
+
         async function loadUsersTable() {
             tableLoader.classList.remove('hidden');
             tableContainer.classList.add('hidden');
@@ -88,187 +264,43 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // --- NEW: Load Branches into Dropdown ---
         async function loadBranchesDropdown() {
             try {
-                // We can reuse the branches CRUD API to get all branches
                 const response = await fetch('api/manage/branches_crud.php');
                 if (!response.ok) {
                     throw new Error('Failed to load branches');
                 }
                 const branches = await response.json();
 
-                if (branches.length > 0) {
+                if (branches.length > 0 && userBranchInput) {
                     userBranchInput.innerHTML = '<option value="">Select a branch</option>';
                     branches.forEach(branch => {
                         const option = new Option(branch.branch_name, branch.branch_id);
                         userBranchInput.appendChild(option);
                     });
-                } else {
+                } else if (userBranchInput) {
                     userBranchInput.innerHTML = '<option value="">No branches found</option>';
                 }
             } catch (error) {
                 console.error('Error loading branches:', error);
-                userBranchInput.innerHTML = '<option value="">Error loading</option>';
+                if(userBranchInput) userBranchInput.innerHTML = '<option value="">Error loading</option>';
             }
         }
 
-        // --- Event Listeners ---
-
-        // NEW: Show/Hide Branch Dropdown based on Role
-        userRoleInput.addEventListener('change', () => {
-            if (userRoleInput.value === 'staff') {
-                userBranchWrapper.classList.remove('hidden');
-                userBranchInput.required = true;
-            } else {
-                userBranchWrapper.classList.add('hidden');
-                userBranchInput.required = false;
-                userBranchInput.value = ''; // Clear selection
-            }
-        });
-
-        // Add User Button
-        addUserBtn.addEventListener('click', () => {
-            userForm.reset();
-            userIdInput.value = '';
-            modalTitle.textContent = 'Add New User';
-            passwordHelp.textContent = 'Required when creating a new user.';
-            userPasswordInput.required = true;
-            // NEW: Handle branch visibility for new user
-            if (userRoleInput.value === 'staff') {
-                userBranchWrapper.classList.remove('hidden');
-                userBranchInput.required = true;
-            } else {
-                userBranchWrapper.classList.add('hidden');
-                userBranchInput.required = false;
-            }
-            openModal(userModal);
-        });
-
-        // Edit Button (Event Delegation)
-        tableBody.addEventListener('click', (e) => {
-            const editButton = e.target.closest('.edit-btn');
-            if (editButton) {
-                const userId = editButton.dataset.id;
-                const user = allUsers.find(u => u.user_id == userId);
-                if (user) {
-                    userForm.reset();
-                    modalTitle.textContent = 'Edit User';
-                    userIdInput.value = user.user_id;
-                    userNameInput.value = user.name;
-                    userEmailInput.value = user.email; // Changed from userUsernameInput
-                    userRoleInput.value = user.role;
-                    passwordHelp.textContent = 'Leave blank to keep password unchanged.';
-                    userPasswordInput.required = false;
-
-                    // NEW: Handle branch visibility and selection for existing user
-                    if (user.role === 'staff') {
-                        userBranchWrapper.classList.remove('hidden');
-                        userBranchInput.required = true;
-                        userBranchInput.value = user.branch_id || ''; // Set branch
-                    } else {
-                        userBranchWrapper.classList.add('hidden');
-                        userBranchInput.required = false;
-                        userBranchInput.value = ''; // Clear selection
-                    }
-                    
-                    openModal(userModal);
-                }
-            }
-        });
-
-        // Delete Button (Event Delegation)
-        tableBody.addEventListener('click', (e) => {
-            const deleteButton = e.target.closest('.delete-btn');
-            if (deleteButton) {
-                userIdToDelete = deleteButton.dataset.id;
-                deleteUserName.textContent = deleteButton.dataset.name;
-                deleteError.classList.add('hidden');
-                openModal(deleteModal);
-            }
-        });
-
-        // Form Submit (Add/Edit)
-        userForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Saving...';
-            formError.classList.add('hidden');
-
-            const formData = new FormData(userForm);
-            const userData = Object.fromEntries(formData.entries());
-            const isEditing = userData.user_id;
-
-            // Handle password: if it's empty, remove it so we don't send an empty string
-            if (!userData.password) {
-                delete userData.password;
-            }
-
-            // NEW: Handle branch_id based on role
-            if (userData.role === 'admin') {
-                userData.branch_id = null; // Admins are not assigned to a branch
-            } else {
-                userData.branch_id = userData.branch_id || null; // Set to null if 'Select a branch' is chosen
-            }
-
-            const url = 'api/manage/users_crud.php';
-            const method = isEditing ? 'PUT' : 'POST';
-
-            try {
-                const response = await fetch(url, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(userData)
-                });
-                const result = await response.json();
-                if (!response.ok) {
-                    throw new Error(result.error || 'Failed to save user');
-                }
-                closeModal(userModal);
-                await loadUsersTable();
-            } catch (error) {
-                formError.textContent = error.message;
-                formError.classList.remove('hidden');
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.textContent = 'Save User';
-            }
-        });
-
-        // Delete Confirmation
-        confirmDeleteBtn.addEventListener('click', async () => {
-            if (!userIdToDelete) return;
-
-            confirmDeleteBtn.disabled = true;
-            confirmDeleteBtn.textContent = 'Deleting...';
-            deleteError.classList.add('hidden');
-
-            try {
-                const response = await fetch(`api/manage/users_crud.php?id=${userIdToDelete}`, {
-                    method: 'DELETE'
-                });
-                const result = await response.json();
-                if (!response.ok) {
-                    throw new Error(result.error || 'Failed to delete user');
-                }
-                closeModal(deleteModal);
-                await loadUsersTable();
-            } catch (error) {
-                deleteError.textContent = error.message;
-                deleteError.classList.remove('hidden');
-            } finally {
-                confirmDeleteBtn.disabled = false;
-                confirmDeleteBtn.textContent = 'Delete';
-                userIdToDelete = null;
-            }
-        });
-
-        // Modal Cancel Buttons
-        cancelBtn.addEventListener('click', () => closeModal(userModal));
-        cancelDeleteBtn.addEventListener('click', () => closeModal(deleteModal));
-
-        // --- Initial Load ---
-        loadBranchesDropdown(); // NEW: Load branches on page load
-        loadUsersTable();
+        // Helper functions for modals
+        function openModal(el) {
+            el.classList.remove('hidden');
+            el.querySelector('.modal-content').classList.remove('-translate-y-10');
+            el.classList.remove('opacity-0', 'visibility-hidden');
+        }
+        function closeModal(el) {
+            el.classList.add('opacity-0', 'visibility-hidden');
+            el.querySelector('.modal-content').classList.add('-translate-y-10');
+            setTimeout(() => {
+                el.classList.add('hidden');
+                if(formError) formError.classList.add('hidden');
+                if(deleteError) deleteError.classList.add('hidden');
+            }, 250);
+        }
     }
 });

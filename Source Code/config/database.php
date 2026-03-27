@@ -3,9 +3,9 @@
 // Edit these settings to match your MySQL database credentials.
 
 $host = 'localhost'; // or 'localhost'
-$db_name = 'inventory_db';
-$username = 'root'; // Your MySQL username
-$password = ''; // Your MySQL password
+$db_name = 'dma-auto';
+$username = 'suzxlabs'; // Your MySQL username
+$password = 'Susara@200611003614'; // Your MySQL password
 
 // --- DO NOT EDIT BELOW THIS LINE ---
 
